@@ -9,7 +9,6 @@ This is just a prototype implementation with some - undesirable - properties, bu
 ### Sender
 ```bash
 make bin/icmput
-gcc icmput.c -o bin/icmput
 ./icmput -f <filepath> -d <destination Ip or domain>`
 ```
 
@@ -23,7 +22,7 @@ tcpdump -X 'icmp6[0]==128' # 128 are ICMP6 echo requests, 129 would be replies
 # it is based on libpcap and assigns the relevant permissions during make,
 # such that sudo is not required for running the server
 make bin/icmput_server
-./bin/icmput_server
+./bin/icmput_server <interface>
 ```
 
 ## But why?

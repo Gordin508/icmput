@@ -217,7 +217,8 @@ int transfer_data_ip6(char *destination, unsigned char *data, size_t data_len, s
         icmp_hdr->icmp6_seq = htons(sequence_number);
 
         memset(packet + sizeof(struct icmp6_hdr), 0, databytes_per_packet);
-        memcpy(packet + sizeof(struct icmp6_hdr), &data[data_sent], databytes_per_packet);
+        size_t to_send = data_len - data_sent;
+        memcpy(packet + sizeof(struct icmp6_hdr), &data[data_sent], to_send >= databytes_per_packet ? databytes_per_packet : to_send);
         icmp_hdr->icmp6_cksum = checksum((unsigned short *)icmp_hdr, packet_size);
 
         if (verbose) {

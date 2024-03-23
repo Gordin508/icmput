@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2024, Gordin508
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of the software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions.
+ * 
+ * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+ * 
+ * In addition, the following restrictions apply:
+ * 
+ * 1. The Software and any modifications made to it may not be used for the purpose of training or improving machine learning algorithms,
+ * including but not limited to artificial intelligence, natural language processing, or data mining. This condition applies to any derivatives,
+ * modifications, or updates based on the Software code. Any usage of the Software in an AI-training dataset is considered a breach of this License.
+ * 
+ * 2. The Software may not be included in any dataset used for training or improving machine learning algorithms,
+ * including but not limited to artificial intelligence, natural language processing, or data mining.
+ * 
+ * 3. Any person or organization found to be in violation of these restrictions will be subject to legal action and may be held liable
+ * for any damages resulting from such use.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+ * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 #include <pcap/pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +49,10 @@ typedef struct {
 } filestream;
 
 
+// currently we manage ICMP identifiers by holding a strictly
+// growing list of file streams
+// (our makeshift protocol does not yet have any notion of EOF,
+// thus we do not know when to close a file)
 filestream *streams = NULL;
 size_t streams_open = 0;
 size_t streams_capacity = 0;
@@ -132,9 +163,7 @@ void process_packet(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char
         stream->open = 1;
         printf("Opened new file: %s\n", filename);
     }
-    icmp6_data_len = icmp6_data_len > 4096 ? 4096 : icmp6_data_len;
     void *data = (void *)((unsigned char*)icmp6_hdr + sizeof(struct icmp6_hdr));
-    // void *data = (void *)packet;
     if (icmp6_data_len != fwrite(data, 1, icmp6_data_len, stream->ptr)) {
         fprintf(stderr, "Failed to write all data for identifier %" PRIu16 "\n", stream->identifier);
     }
@@ -143,9 +172,15 @@ void process_packet(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char
     }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+
+    if (argc != 2) {
+        printf("Usage: %s <interface>\n", argv[0]);
+        return 1;
+    }
     char errbuf[PCAP_ERRBUF_SIZE];
 
+    // Setup signal handler for more graceful shutdowns
     struct sigaction action;
     memset(&action, 0, sizeof(action));
     action.sa_handler = graceful_shutdown;
@@ -154,7 +189,7 @@ int main() {
     sigaction(SIGINT, &action, NULL);
 
     // Open network interface for capturing
-    handle = pcap_open_live("enp0s25", SNAP_LEN, 1, TIMEOUT_MS, errbuf);
+    handle = pcap_open_live(argv[1], SNAP_LEN, 1, TIMEOUT_MS, errbuf);
     if (handle == NULL) {
         fprintf(stderr, "Could not open device: %s\n", errbuf);
         return 1;
