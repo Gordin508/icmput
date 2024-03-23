@@ -37,6 +37,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <time.h>
 
 // default packet size, e.g. used by /bin/ping
 #define DEFAULT_PACKET_SIZE 64
@@ -171,6 +172,9 @@ unsigned short checksum(void *b, int len) {
 
 int transfer_data_ip6(char *destination, unsigned char *data, size_t data_len, size_t packet_size, int verbose) {
     const int INTERVAL_MS = 1000; // time between echo requests
+    struct timespec ts;
+    ts.tv_sec = INTERVAL_MS / 1000;
+    ts.tv_nsec = INTERVAL_MS * 1000;
     const int PROTO = AF_INET6;
     if (packet_size <= sizeof(struct icmp6_hdr)) {
         fprintf(stderr, "Packet size is smaller than header size, can not send data\n");
@@ -212,6 +216,7 @@ int transfer_data_ip6(char *destination, unsigned char *data, size_t data_len, s
         sequence_number++; // overflows are ok
         icmp_hdr->icmp6_seq = htons(sequence_number);
 
+        memset(packet + sizeof(struct icmp6_hdr), 0, databytes_per_packet);
         memcpy(packet + sizeof(struct icmp6_hdr), &data[data_sent], databytes_per_packet);
         icmp_hdr->icmp6_cksum = checksum((unsigned short *)icmp_hdr, packet_size);
 
@@ -266,6 +271,7 @@ int transfer_data_ip6(char *destination, unsigned char *data, size_t data_len, s
         if (verbose) {
             printf("Sent %" PRIu64 " of %" PRIu64 " bytes.\n", data_sent, data_len);
         }
+        nanosleep(&ts, NULL);
     }
 
     freeaddrinfo(res);
